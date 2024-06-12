@@ -2,7 +2,7 @@
 
 A tool designed for efficient organisation and secure storage of credentials gathered during penetration tests
 
-To load the tool directly into your browser:
+Download CredsManager.html and run, or load the tool directly into your browser:
 ```
 http://htmlpreview.github.io/?https://raw.githubusercontent.com/Leo4j/CredsManager/main/CredsManager.html
 ```

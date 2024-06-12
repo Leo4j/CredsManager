@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credentials Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+			overflow: auto;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 100%;
+            display: flex;
+			flex-direction: column;
+        }
+
+        h1 {
+            text-align: center;
+			color: #227487;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+		
+		input[type="password"] {
+			width: 100%;
+			padding: 8px;
+			box-sizing: border-box;
+		}
+
+        button {
+            display: inline-block;
+            margin: 10px 5px;
+            padding: 10px 20px;
+            background-color: #2f9fb3;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #227487;
+        }
+		
+		.table-container {
+			flex: 1; /* Take remaining space */
+			overflow-y: auto;
+			overflow-x: hidden;
+			margin-top: 20px;
+			width: 100%;
+		}
+
+        table {
+            width: 100%;
+			table-layout: fixed;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        td {
+            cursor: pointer;
+        }
+
+        td input {
+            width: 100%;
+        }
+		
+		.actions-cell {
+			width: 110px; /* Set a fixed width for the Actions column */
+			text-align: center; /* Center the buttons */
+		}
+
+        .button-group {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-top: 10px;
+		}
+
+		.left-buttons {
+			display: flex;
+			align-items: center;
+		}
+
+		#encryption-password {
+			margin-left: 10px;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			flex-shrink: 0;
+		}
+		
+		.action-btn {
+			margin: 0 2px; /* Adjust margin for better spacing */
+			padding: 5px 10px; /* Adjust padding for consistent button size */
+		}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Credentials Manager</h1>
+        <form id="credential-form">
+            <div class="form-group">
+                <label for="domain">Domain:</label>
+                <input type="text" id="domain" name="domain">
+            </div>
+            <div class="form-group">
+                <label for="account">Account:</label>
+                <input type="text" id="account" name="account">
+            </div>
+            <div class="form-group">
+                <label for="type">Type:</label>
+                <input type="text" id="type" name="type">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="text" id="password" name="password">
+            </div>
+            <div class="form-group">
+                <label for="ntlm">NTLM:</label>
+                <input type="text" id="ntlm" name="ntlm">
+            </div>
+            <div class="form-group">
+                <label for="aes256">AES256:</label>
+                <input type="text" id="aes256" name="aes256">
+            </div>
+            <div class="form-group">
+                <label for="tgt">TGT:</label>
+                <input type="text" id="tgt" name="tgt">
+            </div>
+            <div class="form-group">
+                <label for="info">Info:</label>
+                <input type="text" id="info" name="info">
+            </div>
+            <button type="button" id="add-btn">Add</button>
+        </form>
+		<div class="table-container">
+			<table id="credential-table">
+				<thead>
+					<tr>
+						<th>Domain</th>
+						<th>Account</th>
+						<th>Type</th>
+						<th>Password</th>
+						<th>NTLM</th>
+						<th>AES256</th>
+						<th>TGT</th>
+						<th>Info</th>
+						<th class="actions-cell">Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+			<div class="button-group">
+				<div class="left-buttons">
+					<button id="save-btn">Save</button>
+					<button id="load-btn">Load</button>
+					<input type="password" id="encryption-password" placeholder="Password">
+				</div>
+				<button id="export-btn">Export</button>
+			</div>
+		</div>
+    </div>
+    <script>
+	
+		function copyToClipboard(text) {
+			const tempInput = document.createElement('input');
+			tempInput.style.position = 'absolute';
+			tempInput.style.left = '-9999px';
+			tempInput.value = text;
+			document.body.appendChild(tempInput);
+			tempInput.select();
+			document.execCommand('copy');
+			document.body.removeChild(tempInput);
+		}
+	
+        function encrypt(text, password) {
+            if (!password) return text;
+            let cipher = CryptoJS.AES.encrypt(text, password);
+            return cipher.toString();
+        }
+
+        function decrypt(ciphertext, password) {
+            if (!password) return ciphertext;
+            let bytes = CryptoJS.AES.decrypt(ciphertext, password);
+            return bytes.toString(CryptoJS.enc.Utf8);
+        }
+
+        function editRow(btn) {
+			let row = btn.parentNode.parentNode;
+			let cells = row.getElementsByTagName('td');
+			for (let i = 0; i < cells.length - 1; i++) {
+				cells[i].removeEventListener('click', copyHandler); // Remove copy event during edit
+				let input = document.createElement('input');
+				input.type = 'text';
+				input.value = cells[i].textContent;
+				cells[i].textContent = '';
+				cells[i].appendChild(input);
+			}
+			btn.textContent = 'Save';
+			btn.onclick = function() {
+				saveRow(btn);
+			};
+		}
+
+        function saveRow(btn) {
+			let row = btn.parentNode.parentNode;
+			let cells = row.getElementsByTagName('td');
+			for (let i = 0; i < cells.length - 1; i++) {
+				let input = cells[i].getElementsByTagName('input')[0];
+				if (input) {
+					cells[i].textContent = input.value;
+					cells[i].setAttribute('title', input.value); // Tooltip to show full content
+					cells[i].addEventListener('click', copyHandler); // Re-add copy event after edit
+				}
+			}
+			btn.textContent = 'Edit';
+			btn.onclick = function() {
+				editRow(btn);
+			};
+		}
+
+        document.getElementById('add-btn').addEventListener('click', function() {
+			let table = document.getElementById('credential-table').getElementsByTagName('tbody')[0];
+			let newRow = table.insertRow();
+
+			let formElements = document.getElementById('credential-form').elements;
+			for (let i = 0; i < formElements.length - 1; i++) {
+				let cell = newRow.insertCell();
+				cell.textContent = formElements[i].value;
+				cell.setAttribute('title', formElements[i].value); // Tooltip to show full content
+				cell.addEventListener('click', copyHandler);
+			}
+
+			let actionsCell = newRow.insertCell();
+			let editBtn = document.createElement('button');
+			editBtn.textContent = 'Edit';
+			editBtn.classList.add('action-btn'); // Add action-btn class
+			editBtn.onclick = function() {
+				editRow(editBtn);
+			};
+			actionsCell.appendChild(editBtn);
+
+			let deleteBtn = document.createElement('button');
+			deleteBtn.textContent = 'Delete';
+			deleteBtn.classList.add('action-btn'); // Add action-btn class
+			deleteBtn.onclick = function() {
+				deleteRow(deleteBtn);
+			};
+			actionsCell.appendChild(deleteBtn);
+
+			document.getElementById('credential-form').reset();
+		});
+		
+		function copyHandler(event) {
+			copyToClipboard(event.target.textContent);
+		}
+
+        function deleteRow(btn) {
+			let row = btn.parentNode.parentNode;
+			row.parentNode.removeChild(row);
+		}
+
+        document.getElementById('save-btn').addEventListener('click', async function() {
+            let tableData = [];
+            let rows = document.getElementById('credential-table').getElementsByTagName('tbody')[0].rows;
+            for (let i = 0; i < rows.length; i++) {
+                let rowData = {};
+                let cells = rows[i].cells;
+                rowData.domain = cells[0].textContent;
+                rowData.account = cells[1].textContent;
+                rowData.type = cells[2].textContent;
+                rowData.password = cells[3].textContent;
+                rowData.ntlm = cells[4].textContent;
+                rowData.aes256 = cells[5].textContent;
+                rowData.tgt = cells[6].textContent;
+                rowData.info = cells[7].textContent;
+                tableData.push(rowData);
+            }
+            let json = JSON.stringify(tableData, null, 2);
+            let password = document.getElementById('encryption-password').value;
+            let encryptedData = encrypt(json, password);
+            let blob = new Blob([encryptedData], { type: 'application/json' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = 'credentials.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        document.getElementById('load-btn').addEventListener('click', async function() {
+			let input = document.createElement('input');
+			input.type = 'file';
+			input.accept = 'application/json';
+			input.onchange = async function(event) {
+				let file = event.target.files[0];
+				if (file) {
+					let text = await file.text();
+					let password = document.getElementById('encryption-password').value;
+					let decryptedData = decrypt(text, password);
+					let tableData = JSON.parse(decryptedData);
+					let table = document.getElementById('credential-table').getElementsByTagName('tbody')[0];
+					table.innerHTML = '';
+					tableData.forEach(function(rowData) {
+						let newRow = table.insertRow();
+						Object.values(rowData).forEach(function(value) {
+							let cell = newRow.insertCell();
+							cell.textContent = value;
+							cell.setAttribute('title', value); // Tooltip to show full content
+							cell.addEventListener('click', copyHandler);
+						});
+						let actionsCell = newRow.insertCell();
+						let editBtn = document.createElement('button');
+						editBtn.textContent = 'Edit';
+						editBtn.classList.add('action-btn'); // Add action-btn class
+						editBtn.onclick = function() {
+							editRow(editBtn);
+						};
+						actionsCell.appendChild(editBtn);
+
+						let deleteBtn = document.createElement('button');
+						deleteBtn.textContent = 'Delete';
+						deleteBtn.classList.add('action-btn'); // Add action-btn class
+						deleteBtn.onclick = function() {
+							deleteRow(deleteBtn);
+						};
+						actionsCell.appendChild(deleteBtn);
+					});
+				}
+			};
+			input.click();
+		});
+
+        document.getElementById('export-btn').addEventListener('click', function() {
+			let tableData = [];
+			let rows = document.getElementById('credential-table').getElementsByTagName('tbody')[0].rows;
+			for (let i = 0; i < rows.length; i++) {
+				let rowData = {};
+				let cells = rows[i].cells;
+				rowData.domain = `\t${cells[0].textContent}`; // Add tab character
+				rowData.account = `\t${cells[1].textContent}`; // Add tab character
+				rowData.type = `\t${cells[2].textContent}`; // Add tab character
+				rowData.password = `\t${cells[3].textContent}`; // Add tab character
+				rowData.ntlm = `\t${cells[4].textContent}`; // Add tab character
+				rowData.aes256 = `\t${cells[5].textContent}`; // Add tab character
+				rowData.tgt = `\t${cells[6].textContent}`; // Add tab character
+				rowData.info = `\t${cells[7].textContent}`; // Add tab character
+				tableData.push(rowData);
+			}
+			let csvContent = "data:text/csv;charset=utf-8,"
+				+ "Domain,Account,Type,Password,NTLM,AES256,TGT,Info\n"
+				+ tableData.map(e => Object.values(e).join(",")).join("\n");
+			let encodedUri = encodeURI(csvContent);
+			let link = document.createElement("a");
+			link.setAttribute("href", encodedUri);
+			link.setAttribute("download", "credential_data.csv");
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		});
+
+    </script>
+    <!-- Include CryptoJS library for encryption/decryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+</body>
+</html>
